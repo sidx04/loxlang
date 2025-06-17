@@ -1,2 +1,4 @@
-var lang = "lox";
-print lang
+"lox";
+// this is a comment
+(( )){} // grouping stuff
+!*+-/=<> <= == // operators

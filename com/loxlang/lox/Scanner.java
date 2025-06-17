@@ -77,8 +77,38 @@ public class Scanner {
       case '>':
         addToken(match('=') ? GREATER_EQUAL : GREATER);
         break;
+      // both for comments and division
+      case '/':
+        if (match('/')) {
+          // This indicates a comment. Comments are lexemes, but they aren’t meaningful,
+          // and the parser doesn’t want to deal with them. So when we reach the end of
+          // the comment, we don’t call addToken() .
+          while (peek() != '\n' && !isAtEnd()) {
+            advance();
+          }
+        } else {
+          addToken(SLASH);
+        }
+        break;
+      case ' ':
+      case '\r':
+      case '\t':
+        // Ignore whitespace.
+        break;
+      case '\n':
+        line++;
+        break;
+      case '"':
+        string();
+        break;
       default:
-        Lox.error(line, "Unexpected character.");
+        if (isDigit(c)) {
+          number();
+        } else if (isAlpha(c)) {
+          identifier();
+        } else {
+          Lox.error(line, "Unexpected character.");
+        }
         break;
     }
   }
@@ -97,12 +127,85 @@ public class Scanner {
     return source.charAt(current - 1);
   }
 
+  // similar to advance but does not consume the character
+  private char peek() {
+    if (isAtEnd()) {
+      return '\0';
+    }
+    return source.charAt(current);
+  }
+
   private void addToken(TokenType type) {
     addToken(type, null);
+  }
+
+  private char peekNext() {
+    if (current + 1 >= source.length()) {
+      return '\0';
+    }
+    return source.charAt(current + 1);
   }
 
   private void addToken(TokenType type, Object literal) {
     String text = source.substring(start, current);
     tokens.add(new Token(type, text, literal, line));
   }
+
+  private void string() {
+    while (peek() != '"' && !isAtEnd()) {
+      if (peek() == '\n') {
+        line++;
+      }
+      advance();
+    }
+    if (isAtEnd()) {
+      Lox.error(line, "Unterminated string");
+      return;
+    }
+
+    // the closing "
+    advance();
+
+    // trim the quotes
+    String val = source.substring(start + 1, current - 1);
+    addToken(STRING, val);
+  }
+
+  private boolean isDigit(char ch) {
+    return ch >= '0' && ch <= '9';
+  }
+
+  private boolean isAlpha(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
+  }
+
+  private boolean isAlphaNumeric(char ch) {
+    return isAlpha(ch) || isDigit(ch);
+  }
+
+  private void number() {
+    while (isDigit(peek())) {
+      advance();
+    }
+
+    // find fractional parts
+    if (peek() == '.' && isDigit(peekNext())) {
+      // consume the "."
+      advance();
+
+      while (isDigit(peek())) {
+        advance();
+      }
+    }
+
+    addToken(NUMBER, Double.parseDouble(source.substring(start, current)));
+  }
+
+  private void identifier() {
+    while (isAlphaNumeric(peek())) {
+      advance();
+    }
+    addToken(IDENTIFIER);
+  }
+
 }
